@@ -1,27 +1,34 @@
 // Types for the AstroMool API client. Field shapes follow https://developers.astromool.com/docs
 export declare const VERSION: string;
 
-export interface Birth {
-  /** YYYY-MM-DD or DD-MM-YYYY */
-  date: string;
-  /** 24-hour HH:MM[:SS] or h:mm AM/PM */
-  time: string;
-  /** IANA time zone, e.g. Asia/Kolkata (preferred) */
+/** A place: lat + lon (+ tz_id or utc_offset), or just place (a name, looked up; the choice is reported in meta.warnings). */
+export interface Place {
+  lat?: number;
+  lon?: number;
+  /** IANA time zone, e.g. Asia/Kolkata (preferred; filled in from the place lookup when absent) */
   tz_id?: string;
   /** Only if tz_id is not known, e.g. +05:30 */
   utc_offset?: string;
-  lat: number;
-  lon: number;
+  /** Place name, e.g. "Patna" - used when lat/lon are absent */
+  place?: string;
+}
+export interface Birth extends Place {
+  /** YYYY-MM-DD or DD-MM-YYYY */
+  date: string;
+  /** 24-hour HH:MM[:SS] or h:mm AM/PM. Required unless birth_time_unknown is true. */
+  time?: string;
+  /** No birth time: a 12:00 chart; meta.warnings names the unreliable parts */
+  birth_time_unknown?: boolean;
 }
 /** For calculators: birth date and time are needed only where input.for is "birth" or "today"; the year/date/next
  *  calculators need only the place (lat, lon, tz_id). */
-export interface Person extends Omit<Birth, "date" | "time"> {
+export interface Person extends Omit<Birth, "date"> {
   date?: string;
-  time?: string;
   name?: string;
   gender?: "male" | "female";
-  place?: string;
 }
+export interface ChartImageOptions { style?: "north" | "south"; chart?: string; format?: "svg" | "png"; theme?: "light" | "dark"; size?: number; }
+export interface BatchItem { method?: "GET" | "POST"; path: string; body?: any; }
 export interface Meta {
   request_id: string;
   engine: string;
@@ -116,6 +123,38 @@ export declare class AstroMool {
     timezone(tzId: string, date: string, time?: string): Promise<Envelope<{ tz_id: string; local: string; utc_offset: string; offset_hours: number }>>;
   };
   meta: { ayanamsas(date?: string): Promise<Envelope<{ date: string; default: string; ayanamsas: { id: string; name: string; value_deg: number }[] }>> };
+  vedic: {
+    chart(birth: Birth): Promise<Envelope<any>>;
+    houses(birth: Birth): Promise<Envelope<any>>;
+    ashtakavarga(birth: Birth): Promise<Envelope<any>>;
+    /** all 16 vargas, or one ("D9") */
+    divisional(birth: Birth, chart?: string): Promise<Envelope<any>>;
+    /** SVG text or PNG bytes */
+    chartImage(birth: Birth, opts?: ChartImageOptions): Promise<string | Uint8Array>;
+  };
+  dasha: { vimshottari(birth: Birth): Promise<Envelope<any>>; yogini(birth: Birth): Promise<Envelope<any>>; };
+  panchang: {
+    day(place: Place, date?: string): Promise<Envelope<any>>;
+    rahuKaal(place: Place, date?: string): Promise<Envelope<any>>;
+    choghadiya(place: Place, date?: string): Promise<Envelope<any>>;
+    hora(place: Place, date?: string): Promise<Envelope<any>>;
+  };
+  match: { ashtakoot(person: Birth & { name?: string }, partner: Birth & { name?: string }): Promise<Envelope<any>>; };
+  numerology: { core(name: string, date: string, asOf?: string): Promise<Envelope<any>>; };
+  dosha: { check(name: string, birth: Birth & { name?: string; gender?: "male" | "female" }): Promise<Envelope<CalculatorResult>>; summary(birth: Birth): Promise<Envelope<any>>; };
+  remedies: { get(name: "gemstone" | "rudraksha" | "lal-kitab" | "lucky" | string, birth: Birth): Promise<Envelope<CalculatorResult>>; };
+  transit: { positions(opts?: Place & { date?: string; time?: string; ayanamsa?: string; node?: "mean" | "true" }): Promise<Envelope<any>>; natal(birth: Birth, onDate?: string): Promise<Envelope<any>>; };
+  kp: { chart(birth: Birth & { ayanamsa?: string; node?: "mean" | "true" }): Promise<Envelope<any>>; rulingPlanets(opts?: Place & { date?: string; time?: string }): Promise<Envelope<any>>; subTable(): Promise<Envelope<any>>; };
+  western: {
+    natal(birth: Birth & { house_system?: string }): Promise<Envelope<any>>;
+    synastry(person: Birth, partner: Birth): Promise<Envelope<any>>;
+    progressions(birth: Birth, onDate?: string): Promise<Envelope<any>>;
+    composite(person: Birth, partner: Birth): Promise<Envelope<any>>;
+  };
+  /** up to 20 calls in one request; each is metered as if called alone */
+  batch(requests: BatchItem[]): Promise<Envelope<{ responses: { path: string; status: number; body?: any }[] }>>;
+  /** any topic endpoint, e.g. topic("/v1/muhurat/vivah", { person: { place: "Delhi" }, params: { year: 2027 } }) */
+  topic(path: string, body: any): Promise<Envelope<CalculatorResult>>;
   request<T = any>(method: string, path: string, body?: any, headers?: Record<string, string>, query?: Record<string, any>): Promise<T>;
 }
 

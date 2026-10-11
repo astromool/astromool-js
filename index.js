@@ -4,7 +4,7 @@
  * Every method resolves to the API's envelope: { data, meta }.
  * https://developers.astromool.com/docs
  */
-const VERSION = "1.1.0";
+const VERSION = "1.2.0";
 const RETRY_STATUS = new Set([500, 502, 503, 504]);
 
 class AstroMoolError extends Error {
@@ -63,6 +63,36 @@ class AstroMool {
       timezone: (tzId, date, time) => this.request("GET", "/v1/geo/timezone", undefined, undefined, clean({ tz_id: tzId, date, time })),
     };
     this.meta = { ayanamsas: (date) => this.request("GET", "/v1/meta/ayanamsas", undefined, undefined, clean({ date })) };
+    const post = (path) => (body) => this.request("POST", path, body);
+    this.vedic = {
+      chart: post("/v1/vedic/chart"), houses: post("/v1/vedic/houses"), ashtakavarga: post("/v1/vedic/ashtakavarga"),
+      divisional: (birth, chart) => this.request("POST", chart ? "/v1/vedic/divisional/" + encodeURIComponent(chart) : "/v1/vedic/divisional", birth),
+      /** Chart picture: { style: "north"|"south", chart: "D1".."D60", format: "svg"|"png", theme, size }. Resolves to a string (svg) or Uint8Array (png). */
+      chartImage: (birth, o = {}) => this._binary("/v1/chart/image", Object.assign({}, birth, clean(o)), (o.format || "svg") === "svg"),
+    };
+    this.dasha = { vimshottari: post("/v1/dasha/vimshottari"), yogini: post("/v1/dasha/yogini") };
+    this.panchang = {
+      /** place = { lat, lon, tz_id } or { place: "Patna" }; date YYYY-MM-DD (default: today there) */
+      day: (place, date) => this.request("POST", "/v1/panchang", Object.assign({}, place, clean({ date }))),
+      rahuKaal: (place, date) => this.request("POST", "/v1/panchang/rahu-kaal", Object.assign({}, place, clean({ date }))),
+      choghadiya: (place, date) => this.request("POST", "/v1/panchang/choghadiya", Object.assign({}, place, clean({ date }))),
+      hora: (place, date) => this.request("POST", "/v1/panchang/hora", Object.assign({}, place, clean({ date }))),
+    };
+    this.match = { ashtakoot: (person, partner) => this.request("POST", "/v1/match/ashtakoot", { person, partner }) };
+    this.numerology = { core: (name, date, asOf) => this.request("POST", "/v1/numerology", clean({ name, date, as_of: asOf })) };
+    this.dosha = { check: (name, birth) => this.request("POST", "/v1/dosha/" + encodeURIComponent(name), birth), summary: post("/v1/dosha/summary") };
+    this.remedies = { get: (name, birth) => this.request("POST", "/v1/remedies/" + encodeURIComponent(name), birth) };
+    this.transit = { positions: (o) => this.request("POST", "/v1/transit/positions", o || {}),
+                     natal: (birth, onDate) => this.request("POST", "/v1/transit/natal", Object.assign({}, birth, clean({ on_date: onDate }))) };
+    this.kp = { chart: post("/v1/kp/chart"), rulingPlanets: (o) => this.request("POST", "/v1/kp/ruling-planets", o || {}),
+                subTable: () => this.request("GET", "/v1/kp/sub-table") };
+    this.western = { natal: post("/v1/western/natal"), synastry: (person, partner) => this.request("POST", "/v1/western/synastry", { person, partner }),
+                     progressions: (birth, onDate) => this.request("POST", "/v1/western/progressions", Object.assign({}, birth, clean({ on_date: onDate }))),
+                     composite: (person, partner) => this.request("POST", "/v1/western/composite", { person, partner }) };
+    /** Up to 20 calls in one request: [{ method?, path, body? }] */
+    this.batch = (requests) => this.request("POST", "/v1/batch", { requests });
+    /** Any topic endpoint, e.g. topic("/v1/muhurat/vivah", { person, params: { year: 2027 } }) */
+    this.topic = (path, body) => this.request("POST", path, body);
   }
 
   /** Ascendant and the nine grahas. birth = {date, time, tz_id | utc_offset, lat, lon}; o = {ayanamsa, node} */
@@ -97,6 +127,14 @@ class AstroMool {
       }
       throw err;
     }
+  }
+
+  async _binary(path, body, asText) {
+    const headers = { "X-API-Key": this.apiKey, "Content-Type": "application/json" };
+    if (typeof window === "undefined") headers["User-Agent"] = "astromool-js/" + VERSION;
+    const res = await this._fetchWithTimeout(this.baseUrl + path, { method: "POST", headers, body: JSON.stringify(body) });
+    if (!res.ok) { let j = null; try { j = await res.json(); } catch (e) { /* not json */ } throw new AstroMoolError(res.status, j, res.headers); }
+    return asText ? res.text() : new Uint8Array(await res.arrayBuffer());
   }
 
   async _fetchWithTimeout(url, init) {

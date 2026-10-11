@@ -47,6 +47,21 @@ s.data.guidance?.sections?.forEach((x) => console.log(x.title, x.text ?? x.body 
 | `geo.search(q, limit)` / `geo.timezone(tzId, date, time)` | `/v1/geo/*` |
 | `meta.ayanamsas(date)`, `usage()`, `health()` | |
 
+## Charts, dasha, panchang, matching and more (1.2.0)
+
+```js
+const b = { date: "1995-08-14", time: "10:35", place: "Patna" };     // or lat/lon/tz_id; birth_time_unknown: true for a noon chart
+await am.vedic.chart(b);            await am.vedic.divisional(b, "D9");      await am.vedic.ashtakavarga(b);
+const svg = await am.vedic.chartImage(b, { style: "south", chart: "D9" });   // PNG: { format: "png" } -> Uint8Array
+await am.dasha.vimshottari(b);      await am.dasha.yogini(b);
+await am.panchang.day({ place: "Delhi" }, "2026-10-11");                     // .rahuKaal / .choghadiya / .hora
+await am.match.ashtakoot(groom, bride);   await am.numerology.core("Asha Verma", "1995-08-14");
+await am.dosha.check("mangal", b);  await am.dosha.summary(b);    await am.remedies.get("gemstone", b);
+await am.transit.natal(b);          await am.kp.chart(b);         await am.western.natal(b);
+await am.batch([{ path: "/v1/vedic/houses", body: b }, { method: "GET", path: "/v1/usage" }]);
+await am.topic("/v1/muhurat/vivah", { person: { place: "Delhi" }, params: { year: 2027 } });   // any topic endpoint
+```
+
 ## Reports
 
 ```js
