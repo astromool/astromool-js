@@ -14,11 +14,25 @@ const chart = await am.planets(birth);                 // { data, meta }
 console.log(chart.data.ascendant.sign, chart.meta.ayanamsa);
 
 const m = await am.calculators.run("manglik-dosha-calculator-by-date-of-birth", birth);
-console.log(m.data.summary);                            // "Manglik - intensity 18/100"
+console.log(m.data.summary);                            // "Manglik - intensity 18/100" (string or null)
 ```
 
 Every call resolves to the API's envelope `{ data, meta }`. `meta` states the ayanamsa, the UTC offset used and
 the engine version; read `meta.warnings` - it flags things like a birth time that did not exist because of a DST change.
+
+## What each calculator needs
+
+`calculators.list()` gives every calculator's `input`: `for` is `birth` (birth chart), `today` (today, read for the
+chart), `year` (send `params.year` / `params.month`), `date` (send `params.date`) or `next` (the next occurrence);
+`params` names the extra inputs it uses; `basic_output: false` means its answer is the full text.
+
+```js
+// muhurat / festival lists: the place, and the year you want (default: this year at the place)
+const v = await am.calculators.run("vivah-muhurat-dates", { lat: 28.61, lon: 77.21, tz_id: "Asia/Kolkata" }, { params: { year: 2027, month: 2 } });
+// the reading behind a summary, when the calculator has one
+const s = await am.calculators.run("sade-sati-calculator-by-date-of-birth", birth);
+s.data.guidance?.sections?.forEach((x) => console.log(x.title, x.text ?? x.body ?? x.rows));
+```
 
 ## Methods
 

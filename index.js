@@ -4,7 +4,7 @@
  * Every method resolves to the API's envelope: { data, meta }.
  * https://developers.astromool.com/docs
  */
-const VERSION = "1.0.0";
+const VERSION = "1.1.0";
 const RETRY_STATUS = new Set([500, 502, 503, 504]);
 
 class AstroMoolError extends Error {

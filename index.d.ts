@@ -13,7 +13,11 @@ export interface Birth {
   lat: number;
   lon: number;
 }
-export interface Person extends Birth {
+/** For calculators: birth date and time are needed only where input.for is "birth" or "today"; the year/date/next
+ *  calculators need only the place (lat, lon, tz_id). */
+export interface Person extends Omit<Birth, "date" | "time"> {
+  date?: string;
+  time?: string;
   name?: string;
   gender?: "male" | "female";
   place?: string;
@@ -35,10 +39,26 @@ export interface ChartPoint {
 export interface Planet extends ChartPoint { name: string; speed: number; retrograde: boolean; }
 export interface PlanetsData { ascendant: ChartPoint; planets: Planet[]; house_system: string; node: string; }
 
-export interface CalculatorInfo { slug: string; type: string; name: string; category: string; needs_partner: boolean; }
+export interface CalculatorInput {
+  /** birth: the birth chart. today: today at the place, read for the birth chart. year: params.year/month at a place.
+   *  date: params.date at a place. next: the next occurrence from today at a place. */
+  for: "birth" | "today" | "year" | "date" | "next";
+  birth_details: boolean;
+  partner: boolean;
+  /** extra params this calculator uses, name -> meaning */
+  params: Record<string, string>;
+  /** false: the answer is only its full text (detail=full, Growth plan and up) */
+  basic_output: boolean;
+}
+export interface CalculatorInfo { slug: string; type: string; name: string; category: string; needs_partner: boolean; input: CalculatorInput; }
+export interface GuidanceSection { title?: string; type?: string; text?: string; body?: string; header?: string[]; rows?: string[][]; }
+export interface Guidance { sections?: GuidanceSection[]; dos?: string[]; donts?: string[]; remedies?: string[]; next?: string; [k: string]: any; }
 export interface CalculatorResult {
   calculator: { slug: string; type: string; name: string; category: string };
+  /** one-paragraph answer, or null when the calculator has none */
   summary: string | null;
+  /** the calculator's structured reading, when it has one */
+  guidance?: Guidance;
   result: Record<string, any>;
   html?: string;
   text?: string;
